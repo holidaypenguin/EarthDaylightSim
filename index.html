@@ -19,27 +19,90 @@
             color: white;
             font-size: x-large;
         }
+
+        #control {
+            position: absolute;
+            bottom: 10px;
+            width: 100%;
+            text-align: center;
+            z-index: 100;
+            display: block;
+            color: white;
+            font-size: large;
+        }
+
+        .desc {
+            text-align: center;
+            color: white;
+            font-size: medium;
+            margin-right: 10px;
+        }
     </style>
 </head>
 
 <body>
-    <div id="time"><span id="clock">00:00:00</span></div>
+    <div id="time">
+        <span id="date">0000-00-00</span>
+        <span id="clock">00:00:00</span>
+        <span id="timezone">GMT+00</span>
+    </div>
+    <div id="control">
+        <span class="desc">WASD/拖动: 移动相机</span>
+        <span class="desc">Q & E: 倾斜</span>
+        <span class="desc">F: 重置倾斜</span>
+        <span class="desc">R: 重置相机</span>
+        <input type="checkbox" id="showPole" checked /> 地轴
+        <input type="checkbox" id="showNoon" /> 12时经线
+        <input type="checkbox" id="showMidnight" /> 0时经线
+    </div>
+
     <script type="module" src="/main.js"></script>
     <script type="module">
         // Add current time to the div with id "clock"
         function updateClock() {
-            var now = new Date();
-            var hours = now.getHours();
-            var minutes = now.getMinutes();
-            var seconds = now.getSeconds();
-            var clockTime = hours.toString().padStart(2, "0")
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            const seconds = now.getSeconds();
+            const clockTime = hours.toString().padStart(2, "0")
                 + ":" + minutes.toString().padStart(2, "0")
                 + ":" + seconds.toString().padStart(2, "0");
             document.getElementById("clock").innerHTML = clockTime;
+            requestAnimationFrame(updateClock); // Update the clock every frame
         }
         updateClock(); // Update the clock initially
-        setInterval(updateClock, 1000); // Update the clock every second
+</script>
+<script type="module">
+    let lastDate;
+
+    function updateDate() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth();
+        const day = now.getDate();
+        const hrsOffset = -now.getTimezoneOffset() / 60;
+
+        const date = year + "-" + (month + 1).toString().padStart(2, "0") + "-" + day.toString().padStart(2, "0");
+
+        if (lastDate !== date) {
+            document.getElementById("date").innerHTML = date;
+            lastDate = date;
+        }
+
+        requestAnimationFrame(updateDate); // Update the date every frame
+    }
+    updateDate(); // Update the date initially
+</script>
+<script type="module">
+    function updateTimezone() {
+        const now = new Date();
+        const hrsOffset = -now.getTimezoneOffset() / 60;
+        const timezone = "GMT" + (hrsOffset >= 0 ? "+" : "") + hrsOffset.toString().padStart(2, "0");
+        document.getElementById("timezone").innerHTML = timezone;
+    }
+    updateTimezone(); // Update the timezone initially
     </script>
+
 </body>
 
 </html>

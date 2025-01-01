@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { log } from 'three/tsl';
 
 /* ========================================================================== */
 /*                             Configs & Constants                            */
@@ -76,8 +77,45 @@ scene.add(pole);
 /* ========================================================================== */
 let isDragging = false;
 let dragStartX, dragStartY;
-let cameraDist = camera.position.z;
-let sphericalCameraAngle = { theta: Math.PI / 2, phi: Math.PI / 2 }
+let cameraTheta = Math.PI / 2, cameraPhi = Math.PI / 2, cameraTilt = 0;
+
+function moveSphericCamera(deltaX, deltaY) {
+    // Rotate delta angle based on camera tilt
+    const deltaXRotated = deltaX * Math.cos(-cameraTilt) - deltaY * Math.sin(-cameraTilt);
+    const deltaYRotated = deltaX * Math.sin(-cameraTilt) + deltaY * Math.cos(-cameraTilt);
+
+    // Calculate new camera angle based on mouse movement
+    cameraTheta += deltaXRotated * 0.01;
+    cameraPhi -= deltaYRotated * 0.01;
+
+    // Limit camera angle to prevent it from going below the horizon
+    cameraPhi = Math.max(Math.min(cameraPhi, Math.PI), 0.001);
+
+    // Calculate new camera position based on new angle
+    const x = CameraDistance * Math.sin(cameraPhi) * Math.cos(cameraTheta);
+    const z = CameraDistance * Math.sin(cameraPhi) * Math.sin(cameraTheta);
+    const y = CameraDistance * Math.cos(cameraPhi);
+
+    // Update camera position and fix on the sphere
+    camera.position.set(x, y, z);
+    camera.lookAt(earth.position);
+    camera.rotation.z += cameraTilt;
+}
+
+function resetCamera() {
+    camera.position.set(0, 0, CameraDistance);
+    camera.lookAt(earth.position);
+    cameraTilt = 0;
+    cameraTheta = Math.PI / 2;
+    cameraPhi = Math.PI / 2;
+}
+
+function tiltCamera(deltaZ) {
+    camera.rotation.z -= cameraTilt;
+    cameraTilt += deltaZ * 0.05;
+    cameraTilt = Math.max(Math.min(cameraTilt, Math.PI / 2), -Math.PI / 2);
+    camera.rotation.z += cameraTilt;
+}
 
 function handleMouseDown(event) {
     isDragging = true;
@@ -97,25 +135,40 @@ function handleMouseMove(event) {
     dragStartX = event.clientX;
     dragStartY = event.clientY;
 
-    let { theta, phi } = sphericalCameraAngle;
+    moveSphericCamera(deltaX, deltaY);
+}
 
-    // Calculate new camera angle based on mouse movement
-    theta += deltaX * 0.01;
-    phi -= deltaY * 0.01;
-
-    // Limit camera angle to prevent it from going below the horizon
-    phi = Math.max(Math.min(phi, Math.PI - 0.1), 0.1);
-
-    // Calculate new camera position based on new angle
-    const x = cameraDist * Math.sin(phi) * Math.cos(theta);
-    const z = cameraDist * Math.sin(phi) * Math.sin(theta);
-    const y = cameraDist * Math.cos(phi);
-
-    sphericalCameraAngle = { theta, phi };
-
-    // Update camera position and fix on the sphere
-    camera.position.set(x, y, z);
-    camera.lookAt(earth.position);
+function handleKeyDown(event) {
+    let deltaZ;
+    switch (event.key) {
+        case 'q': case 'Q':
+            deltaZ = -1; tiltCamera(deltaZ);
+            break;
+        case 'e': case 'E':
+            deltaZ = 1; tiltCamera(deltaZ);
+            break;
+        case 'w': case 'W':
+            moveSphericCamera(0, 1);
+            break;
+        case 's': case 'S':
+            moveSphericCamera(0, -1);
+            break;
+        case 'a': case 'A':
+            moveSphericCamera(1, 0);
+            break;
+        case 'd': case 'D':
+            moveSphericCamera(-1, 0);
+            break;
+        case 'f': case 'F': // Reset camera tilt
+            camera.rotation.z -= cameraTilt;
+            cameraTilt = 0;
+            break;
+        case 'r': case 'R': // Reset camera
+            resetCamera();
+            break;
+        default:
+            return;
+    }
 }
 
 function handleResize() {
@@ -128,21 +181,42 @@ window.addEventListener('resize', handleResize, false);
 window.addEventListener('mousedown', handleMouseDown, false);
 window.addEventListener('mouseup', handleMouseUp, false);
 window.addEventListener('mousemove', handleMouseMove, false);
+window.addEventListener('keydown', handleKeyDown, false);
+
+
+function setupVisibilityToggler(id, obj) {
+    const checkbox = document.getElementById(id);
+    if (!checkbox.checked) {
+        obj.visible = false;
+    }
+
+    checkbox.addEventListener("change", function () {
+        if (this.checked) {
+            obj.visible = true;
+        } else {
+            obj.visible = false;
+        }
+    });
+}
+
+setupVisibilityToggler("showPole", pole);
+setupVisibilityToggler("showNoon", noonMarker);
+setupVisibilityToggler("showMidnight", midnightMarker);
 
 /* ========================================================================== */
 /*                                  Animation                                 */
 /* ========================================================================== */
 // Adjust sphere rotation position y
-function updateRotationY() {
+function updateEarthRotation() {
     const now = new Date();
     const UTCMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
     console.log(UTCMinutes, 'GMT-', now.getUTCHours(), ':', now.getUTCMinutes())
     earth.rotation.y = UTCMinutes * RadPerMinute + GMTOffset - Math.PI / 2;
 }
-updateRotationY();
+updateEarthRotation();
 
 // Adjust rotation x of light source
-function updateRotationX() {
+function updateSunlightAngle() {
     const today = new Date();
     const startOfYear = new Date(today.getFullYear(), 0, 0);
     const dayOfYear = Math.floor((today - startOfYear) / (1000 * 60 * 60 * 24));
@@ -152,20 +226,20 @@ function updateRotationX() {
     const sunlightAngleTANGENT = sunlightAngleSINE / Math.sqrt(1 - sunlightAngleSINE * sunlightAngleSINE)
     directionalLight.position.set(0, SunlightDistance * sunlightAngleTANGENT, SunlightDistance)
 }
-updateRotationX();
+updateSunlightAngle();
 
 // Animation loop
-let lastYTime = 0;
-let lastXTime = 0;
+let lastEarthUpdate = 0;
+let lastSunlightUpdate = 0;
 
 function animate(time) {
-    if (time - lastYTime > 1000 * UpdateInterval) {
-        updateRotationY();
-        lastYTime = time;
+    if (time - lastEarthUpdate > 1000 * UpdateInterval) {
+        updateEarthRotation();
+        lastEarthUpdate = time;
     }
-    if (time - lastXTime > 1000 * 3600) {
-        updateRotationX();
-        lastXTime = time;
+    if (time - lastSunlightUpdate > 1000 * 3600) {
+        updateSunlightAngle();
+        lastSunlightUpdate = time;
     }
     renderer.render(scene, camera);
 }
