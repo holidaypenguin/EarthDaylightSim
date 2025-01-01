@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Earth</title>
+    <style>
+        body {
+            margin: 0;
+        }
+
+        #time {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            z-index: 100;
+            display: block;
+            color: white;
+            font-size: x-large;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="time"><span id="clock">00:00:00</span></div>
+    <script type="module" src="/main.js"></script>
+    <script type="module">
+        // Add current time to the div with id "clock"
+        function updateClock() {
+            var now = new Date();
+            var hours = now.getHours();
+            var minutes = now.getMinutes();
+            var seconds = now.getSeconds();
+            var clockTime = hours.toString().padStart(2, "0")
+                + ":" + minutes.toString().padStart(2, "0")
+                + ":" + seconds.toString().padStart(2, "0");
+            document.getElementById("clock").innerHTML = clockTime;
+        }
+        updateClock(); // Update the clock initially
+        setInterval(updateClock, 1000); // Update the clock every second
+    </script>
+</body>
+
+</html>
