@@ -1,26 +1,43 @@
 import * as THREE from 'three';
-import { log } from 'three/tsl';
 
 /* ========================================================================== */
 /*                             Configs & Constants                            */
 /* ========================================================================== */
-const GMTOffset = -Math.PI; // Distance between map left edge and 0 longitude in radian
-const RadPerMinute = 2 * Math.PI / 1440; // Radian per minute
+const PI = Math.PI;
+const GMTOffset = -PI; // Distance between map left edge and 0 longitude in radian
+const RadPerMinute = 2 * PI / 1440; // Radian per minute
 const UpdateInterval = 60; // Time interval between rotation updates in seconds
-const MapDir = './2k_earth_daymap.jpg';
+const MapDir = '2k_earth_daymap.jpg';
 
 const MarkerWidth = 0.003;
 const PoleRadius = 0.0015;
-const CameraDistance = 2.2;
 const SunlightDistance = 5;
 const SunlightIntensity = 4;
+const DefaultCameraDistance = 1.5;
+
+/* ========================================================================== */
+/*                                    Utils                                   */
+/* ========================================================================== */
+
+function getSunlightAngle(time) {
+    const startOfYear = new Date(time.getFullYear(), 0, 0);
+    const dayOfYear = Math.floor((time - startOfYear) / (1000 * 60 * 60 * 24));
+    return Math.asin(0.398 * Math.cos(2 * PI * (dayOfYear - 173) / 365.242));
+}
 
 /* ========================================================================== */
 /*                                 Scene Setup                                */
 /* ========================================================================== */
+let cameraDistance = DefaultCameraDistance;
+
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.z = CameraDistance;
+const aspect = window.innerWidth / window.innerHeight;
+const camera = new THREE.OrthographicCamera(
+    -cameraDistance * aspect, cameraDistance * aspect,
+    cameraDistance, -cameraDistance,
+    0, 1000
+);
+camera.position.z = cameraDistance;
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
@@ -28,6 +45,10 @@ document.body.appendChild(renderer.domElement);
 // Create ambient light
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
 scene.add(ambientLight);
+
+// Create root object
+const root = new THREE.Object3D();
+scene.add(root);
 
 // Create the Earth
 const earth = new THREE.Mesh(
@@ -37,23 +58,24 @@ const earth = new THREE.Mesh(
     )
 );
 earth.position.set(0, 0, 0);
-scene.add(earth);
+root.add(earth);
 
 // Create sunlight
 const directionalLight = new THREE.DirectionalLight(0xffffff, SunlightIntensity);
 directionalLight.position.set(0, 0, SunlightDistance);
 directionalLight.target = earth;
-scene.add(directionalLight);
+root.add(directionalLight);
 
 // Noon Marker
-const semiCircle = new THREE.CylinderGeometry(1 + 0.01, 1 + 0.01, MarkerWidth, 64, 1, true, 0, Math.PI)
+const semiCircle = new THREE.CylinderGeometry(1 + 0.01, 1 + 0.01, MarkerWidth, 64, 1, true, 0, PI)
 const noonMarker = new THREE.Mesh(
     semiCircle,
     new THREE.MeshBasicMaterial({ color: 0xff0000 })
 );
 noonMarker.position.set(0, 0, 0);
-noonMarker.rotation.set(Math.PI / 2, 0, Math.PI / 2);
-scene.add(noonMarker);
+noonMarker.rotation.set(PI / 2, 0, PI / 2);
+noonMarker.visible = false;
+root.add(noonMarker);
 
 // Midnight Marker
 const midnightMarker = new THREE.Mesh(
@@ -61,8 +83,9 @@ const midnightMarker = new THREE.Mesh(
     new THREE.MeshBasicMaterial({ color: 0x0000ff })
 );
 midnightMarker.position.set(0, 0, 0);
-midnightMarker.rotation.set(Math.PI / 2, 0, -Math.PI / 2);
-scene.add(midnightMarker);
+midnightMarker.rotation.set(PI / 2, 0, -PI / 2);
+midnightMarker.visible = false;
+root.add(midnightMarker);
 
 // Earth pole
 const pole = new THREE.Mesh(
@@ -70,51 +93,46 @@ const pole = new THREE.Mesh(
     new THREE.MeshBasicMaterial({ color: 0xffffff })
 );
 pole.position.set(0, 0, 0);
-scene.add(pole);
+root.add(pole);
 
 /* ========================================================================== */
 /*                            Control & Interaction                           */
 /* ========================================================================== */
 let isDragging = false;
 let dragStartX, dragStartY;
-let cameraTheta = Math.PI / 2, cameraPhi = Math.PI / 2, cameraTilt = 0;
+let cameraTheta = PI / 2, cameraPhi = PI / 2;
 
 function moveSphericCamera(deltaX, deltaY) {
-    // Rotate delta angle based on camera tilt
-    const deltaXRotated = deltaX * Math.cos(-cameraTilt) - deltaY * Math.sin(-cameraTilt);
-    const deltaYRotated = deltaX * Math.sin(-cameraTilt) + deltaY * Math.cos(-cameraTilt);
-
     // Calculate new camera angle based on mouse movement
-    cameraTheta += deltaXRotated * 0.01;
-    cameraPhi -= deltaYRotated * 0.01;
+    cameraTheta += deltaX * 0.01;
+    cameraPhi -= deltaY * 0.01;
 
     // Limit camera angle to prevent it from going below the horizon
-    cameraPhi = Math.max(Math.min(cameraPhi, Math.PI), 0.001);
+    cameraPhi = Math.max(Math.min(cameraPhi, PI), 0.001);
 
     // Calculate new camera position based on new angle
-    const x = CameraDistance * Math.sin(cameraPhi) * Math.cos(cameraTheta);
-    const z = CameraDistance * Math.sin(cameraPhi) * Math.sin(cameraTheta);
-    const y = CameraDistance * Math.cos(cameraPhi);
+    const x = cameraDistance * Math.sin(cameraPhi) * Math.cos(cameraTheta);
+    const z = cameraDistance * Math.sin(cameraPhi) * Math.sin(cameraTheta);
+    const y = cameraDistance * Math.cos(cameraPhi);
 
     // Update camera position and fix on the sphere
     camera.position.set(x, y, z);
     camera.lookAt(earth.position);
-    camera.rotation.z += cameraTilt;
 }
 
 function resetCamera() {
-    camera.position.set(0, 0, CameraDistance);
+    cameraDistance = DefaultCameraDistance;
+    camera.position.set(0, 0, cameraDistance);
     camera.lookAt(earth.position);
-    cameraTilt = 0;
-    cameraTheta = Math.PI / 2;
-    cameraPhi = Math.PI / 2;
+    cameraTheta = PI / 2;
+    cameraPhi = PI / 2;
 }
 
-function tiltCamera(deltaZ) {
-    camera.rotation.z -= cameraTilt;
-    cameraTilt += deltaZ * 0.05;
-    cameraTilt = Math.max(Math.min(cameraTilt, Math.PI / 2), -Math.PI / 2);
-    camera.rotation.z += cameraTilt;
+function tiltScene(deltaZ) {
+    let tilt = root.rotation.x;
+    tilt += deltaZ * 0.01;
+    tilt = Math.max(Math.min(tilt, PI / 2), -PI / 2);
+    root.rotation.x = tilt;
 }
 
 function handleMouseDown(event) {
@@ -138,43 +156,73 @@ function handleMouseMove(event) {
     moveSphericCamera(deltaX, deltaY);
 }
 
+function handleResize() {
+    const aspect = window.innerWidth / window.innerHeight;
+    camera.left = -cameraDistance * aspect;
+    camera.right = cameraDistance * aspect;
+    camera.top = cameraDistance;
+    camera.bottom = -cameraDistance;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
 function handleKeyDown(event) {
-    let deltaZ;
     switch (event.key) {
         case 'q': case 'Q':
-            deltaZ = -1; tiltCamera(deltaZ);
+            tiltScene(-1);
             break;
         case 'e': case 'E':
-            deltaZ = 1; tiltCamera(deltaZ);
+            tiltScene(1);
             break;
-        case 'w': case 'W':
+        case 'w': case 'W': case 'ArrowUp':
             moveSphericCamera(0, 1);
             break;
-        case 's': case 'S':
+        case 's': case 'S': case 'ArrowDown':
             moveSphericCamera(0, -1);
             break;
-        case 'a': case 'A':
+        case 'a': case 'A': case 'ArrowLeft':
             moveSphericCamera(1, 0);
             break;
-        case 'd': case 'D':
+        case 'd': case 'D': case 'ArrowRight':
             moveSphericCamera(-1, 0);
             break;
-        case 'f': case 'F': // Reset camera tilt
-            camera.rotation.z -= cameraTilt;
-            cameraTilt = 0;
+        case 'z': case 'Z': // Zoom out
+            cameraDistance *= 1.1;
+            cameraDistance = Math.min(cameraDistance, 10);
+            handleResize();
             break;
-        case 'r': case 'R': // Reset camera
-            resetCamera();
+        case 'c': case 'C': // Zoom in
+            cameraDistance *= 0.9;
+            cameraDistance = Math.max(cameraDistance, 1);
+            handleResize();
             break;
         default:
             return;
     }
 }
 
-function handleResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+function handleKeyUp(event) {
+    switch (event.key) {
+        case 'r': case 'R': // Reset camera
+            resetCamera();
+            handleResize();
+            break;
+        case 'f': case 'F': // Align with equator
+            root.rotation.x = 0;
+            break;
+        case 'v': case 'V': // Align with ecliptic
+            root.rotation.x = getSunlightAngle(new Date());
+            break;
+        case 't': case 'T': // Toggle markers
+            noonMarker.visible = !noonMarker.visible;
+            midnightMarker.visible = !midnightMarker.visible;
+            break;
+        case 'g': case 'G': // Toggle pole
+            pole.visible = !pole.visible;
+            break;
+        default:
+            return;
+    }
 }
 
 window.addEventListener('resize', handleResize, false);
@@ -182,26 +230,8 @@ window.addEventListener('mousedown', handleMouseDown, false);
 window.addEventListener('mouseup', handleMouseUp, false);
 window.addEventListener('mousemove', handleMouseMove, false);
 window.addEventListener('keydown', handleKeyDown, false);
+window.addEventListener('keyup', handleKeyUp, false);
 
-
-function setupVisibilityToggler(id, obj) {
-    const checkbox = document.getElementById(id);
-    if (!checkbox.checked) {
-        obj.visible = false;
-    }
-
-    checkbox.addEventListener("change", function () {
-        if (this.checked) {
-            obj.visible = true;
-        } else {
-            obj.visible = false;
-        }
-    });
-}
-
-setupVisibilityToggler("showPole", pole);
-setupVisibilityToggler("showNoon", noonMarker);
-setupVisibilityToggler("showMidnight", midnightMarker);
 
 /* ========================================================================== */
 /*                                  Animation                                 */
@@ -210,21 +240,14 @@ setupVisibilityToggler("showMidnight", midnightMarker);
 function updateEarthRotation() {
     const now = new Date();
     const UTCMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-    console.log(UTCMinutes, 'GMT-', now.getUTCHours(), ':', now.getUTCMinutes())
-    earth.rotation.y = UTCMinutes * RadPerMinute + GMTOffset - Math.PI / 2;
+    earth.rotation.y = UTCMinutes * RadPerMinute + GMTOffset - PI / 2;
 }
 updateEarthRotation();
 
 // Adjust rotation x of light source
 function updateSunlightAngle() {
-    const today = new Date();
-    const startOfYear = new Date(today.getFullYear(), 0, 0);
-    const dayOfYear = Math.floor((today - startOfYear) / (1000 * 60 * 60 * 24));
-    console.log(dayOfYear);
-
-    const sunlightAngleSINE = 0.398 * Math.cos(2 * Math.PI * (dayOfYear - 173) / 365.242)
-    const sunlightAngleTANGENT = sunlightAngleSINE / Math.sqrt(1 - sunlightAngleSINE * sunlightAngleSINE)
-    directionalLight.position.set(0, SunlightDistance * sunlightAngleTANGENT, SunlightDistance)
+    const sunlightAngle = getSunlightAngle(new Date());
+    directionalLight.position.set(0, SunlightDistance * Math.tan(sunlightAngle), SunlightDistance)
 }
 updateSunlightAngle();
 
