@@ -67,7 +67,7 @@ directionalLight.target = earth;
 root.add(directionalLight);
 
 // Noon Marker
-const semiCircle = new THREE.CylinderGeometry(1 + 0.01, 1 + 0.01, MarkerWidth, 64, 1, true, 0, PI)
+const semiCircle = new THREE.CylinderGeometry(1 + 0.001, 1 + 0.001, MarkerWidth, 64, 1, true, 0, PI)
 const noonMarker = new THREE.Mesh(
     semiCircle,
     new THREE.MeshBasicMaterial({ color: 0xff0000 })
@@ -93,6 +93,7 @@ const pole = new THREE.Mesh(
     new THREE.MeshBasicMaterial({ color: 0xffffff })
 );
 pole.position.set(0, 0, 0);
+pole.visible = false;
 root.add(pole);
 
 /* ========================================================================== */
@@ -141,8 +142,19 @@ function handleMouseDown(event) {
     dragStartY = event.clientY;
 }
 
+function handleTouchStart(event) {
+    event.preventDefault();
+    const touch = event.touches[0];
+    handleMouseDown(touch);
+}
+
 function handleMouseUp(event) {
     isDragging = false;
+}
+
+function handleTouchEnd(event) {
+    event.preventDefault();
+    handleMouseUp(event);
 }
 
 function handleMouseMove(event) {
@@ -154,6 +166,12 @@ function handleMouseMove(event) {
     dragStartY = event.clientY;
 
     moveSphericCamera(deltaX, deltaY);
+}
+
+function handleTouchMove(event) {
+    event.preventDefault();
+    const touch = event.touches[0];
+    handleMouseMove(touch);
 }
 
 function handleResize() {
@@ -231,6 +249,10 @@ window.addEventListener('mouseup', handleMouseUp, false);
 window.addEventListener('mousemove', handleMouseMove, false);
 window.addEventListener('keydown', handleKeyDown, false);
 window.addEventListener('keyup', handleKeyUp, false);
+// Add mobile touch support
+window.addEventListener('touchstart', handleTouchStart, false);
+window.addEventListener('touchend', handleTouchEnd, false);
+window.addEventListener('touchmove', handleTouchMove, false);
 
 
 /* ========================================================================== */

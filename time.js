@@ -37,7 +37,7 @@ updateDate(); // Update the date initially
 function updateTimezone() {
     const now = new Date();
     const hrsOffset = now.getTimezoneOffset() / 60, minOffset = now.getTimezoneOffset() % 60;
-    const timezone = "GMT" + (hrsOffset < 0 ? "+" : "-") + Math.abs(hrsOffset).toString().padStart(2, "0") + minOffset.toString().padStart(2, "0");
+    const timezone = "GMT" + (hrsOffset <= 0 ? "+" : "-") + Math.abs(hrsOffset).toString().padStart(2, "0") + minOffset.toString().padStart(2, "0");
     document.getElementById("timezone").innerHTML = timezone;
 }
 updateTimezone(); // Update the timezone initially
