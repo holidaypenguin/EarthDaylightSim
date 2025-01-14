@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Earth</title>
+    <style>
+        body {
+            margin: 0;
+            touch-action: none;
+        }
+
+        #time {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            z-index: 100;
+            display: block;
+            color: white;
+            font-size: x-large;
+        }
+
+        #control {
+            position: absolute;
+            bottom: 10px;
+            width: 100%;
+            text-align: center;
+            z-index: 100;
+            display: block;
+        }
+
+        .desc {
+            text-align: center;
+            color: white;
+            font-size: medium;
+            margin-right: 10px;
+        }
+    </style>
+  <script type="module" crossorigin src="./assets/index-auXCQQBH.js"></script>
+</head>
+
+<body>
+    <div id="time">
+        <span id="date">0000-00-00</span>
+        <span id="clock">00:00:00</span>
+        <span id="timezone">GMT+0000</span>
+    </div>
+    <div id="control">
+        <span class="desc">WASD/拖动: 移动相机</span>
+        <span class="desc">Z & C: 相机距离</span>
+        <span class="desc">R: 重置相机</span>
+        <span class="desc">Q & E: 倾斜</span>
+        <span class="desc">F: 赤道对齐</span>
+        <span class="desc">V: 黄道对齐</span>
+        <span class="desc">T: 午时线</span>
+        <span class="desc">G: 地轴</span>
+    </div>
+
+
+</body>
+
+</html>
